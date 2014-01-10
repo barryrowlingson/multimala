@@ -14,9 +14,11 @@
 
 # Executables
 *.exe
-*.out
 *.app
 multimala
+
+# model output files
+*.out
 
 # Editor backups
 *~
