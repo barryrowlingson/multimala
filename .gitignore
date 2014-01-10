@@ -16,9 +16,13 @@
 *.exe
 *.app
 multimala
+countvar
 
 # model output files
 *.out
+
+# R Data files
+*.RData
 
 # Editor backups
 *~
