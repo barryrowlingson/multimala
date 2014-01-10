@@ -1,0 +1,147 @@
+# For the following document, 
+  <> refer to a function,
+  [] refer to any file.
+# All the x,y(coordinates) unit is in km.
+# The study area is 89km*89km (l1*l2 or e1*e2 in the programs)
+# We estimate everything on 128*128 grids.(M<-128,N<-128)
+  Whenever needed, xgrid/ygrid refer to the grid coordinates.
+	###########################
+	xgrid<-seq(402,491,l=129)
+	ygrid<-seq(87,176,l=129)
+	##########################
+# [isinw.txt] is indicator files which contains only 0/1.
+  [INTENSITY3.txt] is background intensity file (reflect the population intensitys)
+  Both are on 128*128 grids.  
+  Different rows stand for diff y cor and col stands for x cor.
+  The reason of above is that the file will reflect the real map.
+  When we need to map it (say by using image(x,y,z), then z=t(isinw))
+# Be caucious:  there is another file called [isinw.in] which is the input file for 
+  [multimala.c].  [isinw.in] is on 256*256 extended grids. 
+
+1) All data sorted by date
+2) Decide a date of interested(i)
+3) Subset whole data to 5 days only [Day_i...Day_(i-4)]:  
+   *Suppose it call "DATA":  contain 3 columns: XAxis, YAxis, Date of onset
+   *check the unit of coordinate:  according to the past, 
+    it is recorded in meter(eg. 475000).  
+   *Standardize length unit to be km (eg.475km) and col.name to be XAxis/YAxis
+4) Check if we have 5 days data.  if no=>Stop
+5) subset the data by <inarea> (in [parestimate3.r])
+   ######################################
+   source("parestimate3.r")
+
+   INTENSITY3 <- read.table("INTENSITY3.txt",header=F)
+   isinw <-read.table("isinw.txt",header=F)
+   xgrid<-seq(402,491,l=129)
+   ygrid<-seq(87,176,l=129)
+   l1<-89
+   l2<-89
+
+   select_rep(0,dim(DATA)[1])
+   tisinw_t(isinw)
+   for (i in 1:dim(DATA)[1]){
+  	select[i]_inarea(DATA$X[i],DATA$Y[i],l1,l2,128,128,tisinw,xgrid,ygrid)
+   }
+   DATA_DATA[select==1,]
+   #####################################
+
+6) Generate each date's data as a single file spp1, spp2, spp3, spp4, spp5 (latest)
+   code in[testpred1.R] as follows, and <sppdata> in [parestimate3.r]. 
+   When I did the following, i did it on every single day's data.
+   An example spp can be found in the same directory.   
+
+   When input DATA, the X/Y suppose are all in km.
+   
+   The third column in DATA is the date of onset.
+   Please pay attention the way i handle the date in <sppdata>.  What we need is which
+   day of the week it is and a SETNO which start counting date 2000-08-01 to be SETNO=1.   
+
+   After this step, we will generate spp1...spp5 each has 3 cols and the last column 
+   is the average count for that specific week-of-the-day and day-of-the-year. 
+   (the magnitude is about 10 cases per day.  X/Y have been standardize between 0-89)
+
+   ####################################
+   temp2 <- sppdata(DATA,c(402,491),c(87,176))
+   write(t(temp2),file="~/AEGISS/LGCP/UTILITY/spp1",ncolumns=3)
+   ####################################
+
+7) Compile [multimala.c]  [makefile]
+   Run multimala for several times [runmultimala]
+   The argument in runmultimala will be
+   
+   time ./multimala spp1-spp5 first scale itr
+
+   first- A 0/1 indicator only if it run the first time, it's 1.  
+          Following run are all 0
+   scale- how big the MCMC jump.  from the previous test run, 
+          when it's 0.001 it's acceptable- give us a accept rate around 0.5-0.7
+          (the acceptance rate will be printed when multimala is run)
+   itr-how many iterations are we running.
+       if we just want to test the program, we can set it on a small iteration.
+       roughly, every 100 itr run about 6-7 mins. 
+       So for the real big run-10000 will take 11 hours.
+       if we run runmultimala, include the burn in run, it's 12900 iterations
+       in total and will take 14 hours?
+   ##################################
+   ./runmultimala >runmultimala.out &
+   ###################################
+
+8) Following files are needed for the [multimala]
+   
+   [multimala.in]:  they are mu(now fixed to be -sigma2/2), sigma2(3.02), 
+                    grid size x-dir(128), grid size y-dir(128), 
+                    length x dir(89), length ydir(89), 
+                    isinw.in(input file), smoothdens.in(input file), 
+                    temporal parameter (fix 5.5 now, if peter wants to change it...), 
+                    day separation between 2 spp(all 1).
+
+   How to generate [isinw.in] and [smoothdens.in] are located in testpred1.R file.
+   In short, they are from [isinw.txt] and [INTENSITY3.txt] 
+   but enlarge them to be 256*256.
+
+   [S.in]: incoperate the information of spatial parameter.  
+           It has been generated from [testpred1.R].  
+           This involves using <find.fourier> which is in [parestimate3.r]
+          
+           Note:  the current [S.in] i supply under the directory is based on Phi<-6.52
+                  If PeterD wants to change it, we need to regenerate [S.in] 
+                  based on changing Phi.
+   ####################################################
+   S_find.fourier(Phi,128,128,89,89,"exponential.cov")
+   S1_t(Re(S))
+   if (length(S1[S1<0])>0)
+   print("Warning: Negative definite covariance for extended field.")
+   write.matrix(S1,"S.in")
+   ####################################################
+
+9)The result will be lots of .out files.  The one we are interested are
+  [exceed5_4_2.out][exceed5_4_4.out][exceed5_4_8.out]  
+  it's 256*256 grids but we only interested in the first 128*128 grids.
+  exceed a_b_c.out stands for a-5 days, b-the last days(in c is from 0-4),
+  c is we are interested in Pr(exp(y)>C)
+
+10)To generate map, [plotting.R]
+   In the file now i put the coordinate back to original scale (in meter)
+   and the xgrid/ygrid there is the mid point of 128*128 grids.
+   
+   THe cutting point (i.e. tmp2<0.5, <0.9... this can be changed or make it flexible if needed)
+###############################################################################
+exceedc2<-matrix(scan(paste(SIMOUTPUT,"exceed5_4_2.out",sep="")),ncol=2*128, byrow=T)
+exceedc2<-exceedc2[1:128,1:128]
+tmp2_exceedc2*isinw/10000 #this isinw is the isinw.txt.
+tmp2[isinw==0]_NA
+temp2_tmp2
+temp2[is.na(temp2)] <-4
+temp2[(tmp2<0.5)]_3
+temp2[(tmp2 >= 0.5) & (tmp2<0.9)]_2
+temp2[(tmp2>=0.9) & (tmp2<0.99)]_1
+temp2[(tmp2>=0.99)]_0
+
+image(xgrid*1000,ygrid*1000,t(temp2),xlim=c(400000,492000),ylim=c(87000,177000)
+,zlim=c(0,4),xlab='Easting',ylab='Northing',col=c("red","blue","yellow","limegre
+en","white"))
+
+legend(405000,170000,c("NA","0<=p<0.5","0.5<=p<0.9","0.9<=p<0.99","0.99<=p"),col
+=c("white","limegreen","yellow","blue","red"),fill=c("white","limegreen","yellow
+","blue","red"))
+############################################

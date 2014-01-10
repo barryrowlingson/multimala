@@ -1,0 +1,7 @@
+time ./multimala spp1 spp2 spp3 spp4 spp5 1 0.00001 100
+time ./multimala spp1 spp2 spp3 spp4 spp5 0 0.0001  100
+time ./multimala spp1 spp2 spp3 spp4 spp5 0 0.001 200
+time ./multimala spp1 spp2 spp3 spp4 spp5 0 0.001 500
+time ./multimala spp1 spp2 spp3 spp4 spp5 0 0.001 2000
+time ./multimala spp1 spp2 spp3 spp4 spp5 0 0.001 10000
+
