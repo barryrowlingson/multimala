@@ -1,0 +1,14 @@
+Package: aegiss
+Title: Helper Code for old AEGISS
+Description: Some routines for helping with playing with the old AEGISS codebase
+Version: 0.1
+Authors@R: "Barry Rowlingson <b.rowlingson@gmail.com> [aut, cre]"
+Depends:
+    R (>= 3.0.2),
+    raster
+License: Private
+LazyData: true
+Collate:
+    'aegiss-package.r'
+    'grids.R'
+    'readGrids.R'
